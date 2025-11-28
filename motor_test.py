@@ -1,34 +1,45 @@
 import RPi.GPIO as GPIO
 import time
 
-IN1 = 23  # GPIO23 (physical pin 16)
-IN2 = 24  # GPIO24 (physical pin 18)
+# GPIO pins (BCM numbering)
+IN1 = 17  # L298N IN1
+IN2 = 18  # L298N IN2
+IN3 = 27  # L298N IN3
+IN4 = 22  # L298N IN4
 
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(IN1, GPIO.OUT)
-GPIO.setup(IN2, GPIO.OUT)
+for pin in (IN1, IN2, IN3, IN4):
+    GPIO.setup(pin, GPIO.OUT)
+    GPIO.output(pin, GPIO.LOW)
 
-def set_state(label, in1, in2, t=3):
-    print(label)
-    GPIO.output(IN1, in1)
-    GPIO.output(IN2, in2)
-    time.sleep(t)
+# Full-step sequence (2-phase on)
+FULL_STEP_SEQ = [
+    (1, 0, 1, 0),
+    (1, 0, 0, 1),
+    (0, 1, 0, 1),
+    (0, 1, 1, 0),
+]
+
+def spin_right_for_5s():
+    delay = 0.0125          # seconds per microstep
+    steps = 100             # full steps
+    # Total time ≈ steps * len(seq) * delay = 100 * 4 * 0.0125 = 5 s
+
+    for _ in range(steps):
+        for (a1, a2, b1, b2) in FULL_STEP_SEQ:
+            GPIO.output(IN1, a1)
+            GPIO.output(IN2, a2)
+            GPIO.output(IN3, b1)
+            GPIO.output(IN4, b2)
+            time.sleep(delay)
 
 try:
-    # Stop
-    set_state("STOP (both LOW)", GPIO.LOW, GPIO.LOW, 2)
-
-    # Direction A
-    set_state("DIR A (IN1 HIGH, IN2 LOW)", GPIO.HIGH, GPIO.LOW, 3)
-
-    # Stop
-    set_state("STOP (both LOW)", GPIO.LOW, GPIO.LOW, 2)
-
-    # Direction B
-    set_state("DIR B (IN1 LOW, IN2 HIGH)", GPIO.LOW, GPIO.HIGH, 3)
-
-    # Final stop
-    set_state("STOP (both LOW)", GPIO.LOW, GPIO.LOW, 2)
-
+    print("Spinning right for ~5 seconds...")
+    spin_right_for_5s()
 finally:
+    # Turn everything off
+    GPIO.output(IN1, GPIO.LOW)
+    GPIO.output(IN2, GPIO.LOW)
+    GPIO.output(IN3, GPIO.LOW)
+    GPIO.output(IN4, GPIO.LOW)
     GPIO.cleanup()
